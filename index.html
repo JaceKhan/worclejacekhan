@@ -46,6 +46,32 @@
                 <audio id="audioPlayer" controls class="w-full mb-4">
                     Your browser does not support the audio element.
                 </audio>
+                <!-- 속도 조절 UI 추가 -->
+                <div class="flex items-center mb-4">
+                    <label for="playbackRate" class="mr-2 text-gray-700"><i class="fas fa-tachometer-alt mr-1"></i>재생 속도</label>
+                    <select id="playbackRate" class="border rounded px-2 py-1 text-gray-700">
+                        <option value="0.5">0.5x</option>
+                        <option value="0.75">0.75x</option>
+                        <option value="1" selected>1x (기본)</option>
+                        <option value="1.25">1.25x</option>
+                        <option value="1.5">1.5x</option>
+                        <option value="2">2x</option>
+                    </select>
+                </div>
+                <!-- AB 반복 UI 추가 -->
+                <div class="flex items-center mb-4 space-x-2">
+                    <button id="setA" class="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"><i class="fas fa-play mr-1"></i>A지점 지정</button>
+                    <button id="setB" class="px-3 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"><i class="fas fa-stop mr-1"></i>B지점 지정</button>
+                    <button id="clearAB" class="px-3 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"><i class="fas fa-times mr-1"></i>구간 반복 해제</button>
+                    <span id="abStatus" class="ml-2 text-sm text-gray-500"></span>
+                </div>
+                <!-- 북마크 저장 UI -->
+                <div class="flex items-center mb-4 space-x-2">
+                    <input id="bookmarkMemo" type="text" placeholder="메모 입력" class="border rounded px-2 py-1 text-gray-700 flex-1" />
+                    <button id="saveBookmark" class="px-3 py-1 bg-yellow-100 text-yellow-700 rounded hover:bg-yellow-200 transition-colors" disabled><i class="fas fa-bookmark mr-1"></i>북마크 저장</button>
+                </div>
+                <!-- 북마크 목록 -->
+                <div id="bookmarkList" class="mb-4"></div>
                 <div class="flex items-center justify-between">
                     <label class="flex items-center text-gray-700">
                         <input type="checkbox" id="repeatMode" class="mr-2">
@@ -100,6 +126,13 @@
             constructor() {
                 this.db = null;
                 this.currentAudio = null;
+                // AB 반복 관련 변수
+                this.aPoint = null;
+                this.bPoint = null;
+                this.abRepeatActive = false;
+                // 북마크 관련
+                this.currentFileId = null;
+                this.bookmarks = [];
                 this.init();
             }
 
@@ -111,20 +144,23 @@
 
             async initDB() {
                 return new Promise((resolve, reject) => {
-                    const request = indexedDB.open('SpeechPracticeDB', 1);
-                    
+                    const request = indexedDB.open('SpeechPracticeDB', 2); // 버전 2로 업그레이드
                     request.onerror = () => reject(request.error);
                     request.onsuccess = () => {
                         this.db = request.result;
                         resolve();
                     };
-                    
                     request.onupgradeneeded = (event) => {
                         const db = event.target.result;
                         if (!db.objectStoreNames.contains('audioFiles')) {
                             const store = db.createObjectStore('audioFiles', { keyPath: 'id' });
                             store.createIndex('name', 'name', { unique: false });
                             store.createIndex('uploadDate', 'uploadDate', { unique: false });
+                        }
+                        // 북마크 저장소 추가
+                        if (!db.objectStoreNames.contains('bookmarks')) {
+                            const store = db.createObjectStore('bookmarks', { keyPath: 'id', autoIncrement: true });
+                            store.createIndex('fileId', 'fileId', { unique: false });
                         }
                     };
                 });
@@ -134,6 +170,40 @@
                 const fileInput = document.getElementById('audioFile');
                 const audioPlayer = document.getElementById('audioPlayer');
                 const repeatMode = document.getElementById('repeatMode');
+                const playbackRate = document.getElementById('playbackRate');
+                // AB 반복 버튼
+                const setA = document.getElementById('setA');
+                const setB = document.getElementById('setB');
+                const clearAB = document.getElementById('clearAB');
+                const abStatus = document.getElementById('abStatus');
+                const saveBookmark = document.getElementById('saveBookmark');
+                const bookmarkMemo = document.getElementById('bookmarkMemo');
+                // 북마크 저장 버튼 활성화/비활성화
+                const updateBookmarkButton = () => {
+                    saveBookmark.disabled = !(this.aPoint !== null && this.bPoint !== null && bookmarkMemo.value.trim() !== '');
+                };
+                bookmarkMemo.addEventListener('input', updateBookmarkButton);
+                setA.addEventListener('click', updateBookmarkButton);
+                setB.addEventListener('click', updateBookmarkButton);
+                clearAB.addEventListener('click', updateBookmarkButton);
+                // 북마크 저장 이벤트
+                saveBookmark.addEventListener('click', async () => {
+                    if (this.aPoint !== null && this.bPoint !== null && bookmarkMemo.value.trim() !== '' && this.currentFileId) {
+                        await this.saveBookmark({
+                            fileId: this.currentFileId,
+                            a: this.aPoint,
+                            b: this.bPoint,
+                            memo: bookmarkMemo.value.trim()
+                        });
+                        bookmarkMemo.value = '';
+                        this.aPoint = null;
+                        this.bPoint = null;
+                        this.abRepeatActive = false;
+                        abStatus.textContent = '';
+                        await this.loadBookmarks(this.currentFileId);
+                        updateBookmarkButton();
+                    }
+                });
 
                 fileInput.addEventListener('change', (e) => this.handleFileUpload(e));
                 
@@ -141,6 +211,41 @@
                     if (repeatMode.checked) {
                         audioPlayer.currentTime = 0;
                         audioPlayer.play();
+                    }
+                });
+
+                // 속도 조절 이벤트 리스너
+                playbackRate.addEventListener('change', (e) => {
+                    audioPlayer.playbackRate = parseFloat(e.target.value);
+                });
+
+                // AB 반복 버튼 이벤트
+                setA.addEventListener('click', () => {
+                    this.aPoint = audioPlayer.currentTime;
+                    abStatus.textContent = `A: ${this.formatTime(this.aPoint)}`;
+                    this.abRepeatActive = false;
+                });
+                setB.addEventListener('click', () => {
+                    if (this.aPoint !== null) {
+                        this.bPoint = audioPlayer.currentTime;
+                        abStatus.textContent = `A: ${this.formatTime(this.aPoint)} ~ B: ${this.formatTime(this.bPoint)}`;
+                        this.abRepeatActive = true;
+                    }
+                });
+                clearAB.addEventListener('click', () => {
+                    this.aPoint = null;
+                    this.bPoint = null;
+                    this.abRepeatActive = false;
+                    abStatus.textContent = '';
+                });
+
+                // AB 반복 로직
+                audioPlayer.addEventListener('timeupdate', () => {
+                    if (this.abRepeatActive && this.aPoint !== null && this.bPoint !== null) {
+                        if (audioPlayer.currentTime >= this.bPoint) {
+                            audioPlayer.currentTime = this.aPoint;
+                            audioPlayer.play();
+                        }
                     }
                 });
             }
@@ -259,6 +364,7 @@
                     const audioPlayer = document.getElementById('audioPlayer');
                     const playerSection = document.getElementById('playerSection');
                     const currentFileName = document.getElementById('currentFileName');
+                    const playbackRate = document.getElementById('playbackRate');
                     
                     // Clean up previous URL
                     if (this.currentAudio) {
@@ -269,9 +375,20 @@
                     audioPlayer.src = url;
                     currentFileName.textContent = file.name;
                     playerSection.classList.remove('hidden');
+
+                    // 재생 속도 초기화
+                    audioPlayer.playbackRate = parseFloat(playbackRate.value);
+                    
+                    // AB 반복 초기화
+                    this.aPoint = null;
+                    this.bPoint = null;
+                    this.abRepeatActive = false;
+                    document.getElementById('abStatus').textContent = '';
                     
                     // Scroll to player
                     playerSection.scrollIntoView({ behavior: 'smooth' });
+                    this.currentFileId = fileId;
+                    await this.loadBookmarks(fileId);
                 } catch (error) {
                     console.error('Play error:', error);
                     this.showStatus('파일 재생 중 오류가 발생했습니다.', 'error');
@@ -358,6 +475,82 @@
                     hour: '2-digit',
                     minute: '2-digit'
                 });
+            }
+
+            // 시간 포맷 함수 추가
+            formatTime(seconds) {
+                if (isNaN(seconds)) return '';
+                const m = Math.floor(seconds / 60);
+                const s = Math.floor(seconds % 60);
+                return `${m}:${s.toString().padStart(2, '0')}`;
+            }
+
+            // 북마크 저장
+            async saveBookmark(bookmark) {
+                return new Promise((resolve, reject) => {
+                    const transaction = this.db.transaction(['bookmarks'], 'readwrite');
+                    const store = transaction.objectStore('bookmarks');
+                    const request = store.add(bookmark);
+                    request.onsuccess = () => resolve();
+                    request.onerror = () => reject(request.error);
+                });
+            }
+            // 북마크 불러오기
+            async loadBookmarks(fileId) {
+                return new Promise((resolve, reject) => {
+                    const transaction = this.db.transaction(['bookmarks'], 'readonly');
+                    const store = transaction.objectStore('bookmarks');
+                    const index = store.index('fileId');
+                    const request = index.getAll(fileId);
+                    request.onsuccess = () => {
+                        this.bookmarks = request.result;
+                        this.renderBookmarkList();
+                        resolve();
+                    };
+                    request.onerror = () => reject(request.error);
+                });
+            }
+            // 북마크 목록 렌더링
+            renderBookmarkList() {
+                const bookmarkList = document.getElementById('bookmarkList');
+                if (!this.bookmarks || this.bookmarks.length === 0) {
+                    bookmarkList.innerHTML = '<div class="text-gray-400 text-sm">저장된 북마크가 없습니다.</div>';
+                    return;
+                }
+                bookmarkList.innerHTML = this.bookmarks.map(bm => `
+                    <div class="flex items-center justify-between p-2 border-b">
+                        <div class="flex-1 cursor-pointer" onclick="app.playBookmark(${bm.id})">
+                            <span class="font-semibold text-blue-700">[${this.formatTime(bm.a)}~${this.formatTime(bm.b)}]</span>
+                            <span class="ml-2 text-gray-700">${bm.memo}</span>
+                        </div>
+                        <button onclick="app.deleteBookmark(event, ${bm.id})" class="ml-2 px-2 py-0.5 text-xs text-red-600 hover:bg-red-100 rounded"><i class="fas fa-trash"></i></button>
+                    </div>
+                `).join('');
+            }
+            // 북마크 구간 반복 재생
+            playBookmark(bookmarkId) {
+                const bm = this.bookmarks.find(b => b.id === bookmarkId);
+                if (!bm) return;
+                const audioPlayer = document.getElementById('audioPlayer');
+                this.aPoint = bm.a;
+                this.bPoint = bm.b;
+                this.abRepeatActive = true;
+                audioPlayer.currentTime = this.aPoint;
+                audioPlayer.play();
+                document.getElementById('abStatus').textContent = `A: ${this.formatTime(this.aPoint)} ~ B: ${this.formatTime(this.bPoint)}`;
+                document.getElementById('bookmarkMemo').value = bm.memo;
+            }
+            // 북마크 삭제
+            async deleteBookmark(event, bookmarkId) {
+                event.stopPropagation();
+                await new Promise((resolve, reject) => {
+                    const transaction = this.db.transaction(['bookmarks'], 'readwrite');
+                    const store = transaction.objectStore('bookmarks');
+                    const request = store.delete(bookmarkId);
+                    request.onsuccess = () => resolve();
+                    request.onerror = () => reject(request.error);
+                });
+                await this.loadBookmarks(this.currentFileId);
             }
         }
 

@@ -1,0 +1,42 @@
+{
+  "name": "worclejacekhan",
+  "version": "1.0.0",
+  "description": "제이스칸 교육 말하기대회 연습앱 - 음성 파일 업로드 및 반복 재생 기능",
+  "main": "index.html",
+  "scripts": {
+    "start": "serve . -p 8000",
+    "dev": "serve . -p 8000",
+    "build": "echo 'No build step required for static HTML'",
+    "deploy": "echo 'Deploy to GitHub Pages by pushing to main branch'"
+  },
+  "keywords": [
+    "speech",
+    "practice",
+    "audio",
+    "education",
+    "korean",
+    "speaking",
+    "contest"
+  ],
+  "author": "제이스칸 교육팀",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/worclejacekhan.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/worclejacekhan/issues"
+  },
+  "homepage": "https://your-username.github.io/worclejacekhan",
+  "devDependencies": {
+    "serve": "^14.2.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead"
+  ]
+} 

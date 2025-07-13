@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>제이스칸 교육 말하기대회 연습앱</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">
+                <i class="fas fa-microphone text-blue-600 mr-3"></i>
+                제이스칸 교육 말하기대회 연습앱
+            </h1>
+            <p class="text-gray-600">음성 파일을 업로드하고 반복 연습하세요</p>
+        </div>
+
+        <!-- Upload Section -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">
+                <i class="fas fa-upload text-green-600 mr-2"></i>
+                파일 업로드
+            </h2>
+            <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                <input type="file" id="audioFile" accept="audio/*" class="hidden">
+                <label for="audioFile" class="cursor-pointer">
+                    <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4 block"></i>
+                    <p class="text-gray-600 mb-2">클릭하여 음성 파일을 선택하세요</p>
+                    <p class="text-sm text-gray-500">MP3, WAV, M4A 등 지원</p>
+                </label>
+            </div>
+            <div id="uploadStatus" class="mt-4 text-center hidden"></div>
+        </div>
+
+        <!-- Audio Player Section -->
+        <div id="playerSection" class="bg-white rounded-lg shadow-md p-6 mb-8 hidden">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">
+                <i class="fas fa-play-circle text-purple-600 mr-2"></i>
+                현재 재생 중
+            </h2>
+            <div class="bg-gray-50 rounded-lg p-4">
+                <div id="currentFileName" class="text-lg font-medium text-gray-800 mb-3"></div>
+                <audio id="audioPlayer" controls class="w-full mb-4">
+                    Your browser does not support the audio element.
+                </audio>
+                <div class="flex items-center justify-between">
+                    <label class="flex items-center text-gray-700">
+                        <input type="checkbox" id="repeatMode" class="mr-2">
+                        <i class="fas fa-repeat mr-1"></i>
+                        반복 재생
+                    </label>
+                    <div class="flex items-center text-sm text-gray-600">
+                        <i class="fas fa-volume-up mr-1"></i>
+                        <span>음량 조절 가능</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- File List Section -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">
+                <i class="fas fa-list text-orange-600 mr-2"></i>
+                저장된 파일 목록
+            </h2>
+            <div id="fileList" class="space-y-2">
+                <div class="text-gray-500 text-center py-8">
+                    <i class="fas fa-folder-open text-4xl mb-2 block"></i>
+                    저장된 파일이 없습니다.
+                </div>
+            </div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="mt-8 bg-blue-50 border-l-4 border-blue-400 p-4 rounded">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-info-circle text-blue-400"></i>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-blue-800">사용 방법</h3>
+                    <div class="mt-2 text-sm text-blue-700">
+                        <ul class="list-disc list-inside space-y-1">
+                            <li>음성 파일을 업로드하면 브라우저에 자동 저장됩니다</li>
+                            <li>파일을 클릭하면 재생되며, 반복 재생으로 연습할 수 있습니다</li>
+                            <li>다음에 다시 방문해도 파일이 그대로 보관됩니다</li>
+                            <li>불필요한 파일은 삭제 버튼으로 제거할 수 있습니다</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class SpeechPracticeApp {
+            constructor() {
+                this.db = null;
+                this.currentAudio = null;
+                this.init();
+            }
+
+            async init() {
+                await this.initDB();
+                await this.loadFileList();
+                this.setupEventListeners();
+            }
+
+            async initDB() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open('SpeechPracticeDB', 1);
+                    
+                    request.onerror = () => reject(request.error);
+                    request.onsuccess = () => {
+                        this.db = request.result;
+                        resolve();
+                    };
+                    
+                    request.onupgradeneeded = (event) => {
+                        const db = event.target.result;
+                        if (!db.objectStoreNames.contains('audioFiles')) {
+                            const store = db.createObjectStore('audioFiles', { keyPath: 'id' });
+                            store.createIndex('name', 'name', { unique: false });
+                            store.createIndex('uploadDate', 'uploadDate', { unique: false });
+                        }
+                    };
+                });
+            }
+
+            setupEventListeners() {
+                const fileInput = document.getElementById('audioFile');
+                const audioPlayer = document.getElementById('audioPlayer');
+                const repeatMode = document.getElementById('repeatMode');
+
+                fileInput.addEventListener('change', (e) => this.handleFileUpload(e));
+                
+                audioPlayer.addEventListener('ended', () => {
+                    if (repeatMode.checked) {
+                        audioPlayer.currentTime = 0;
+                        audioPlayer.play();
+                    }
+                });
+            }
+
+            async handleFileUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                if (!file.type.startsWith('audio/')) {
+                    this.showStatus('오디오 파일만 업로드할 수 있습니다.', 'error');
+                    return;
+                }
+
+                this.showStatus('파일 업로드 중...', 'loading');
+
+                try {
+                    const audioData = {
+                        id: Date.now().toString(),
+                        name: file.name,
+                        data: await this.fileToArrayBuffer(file),
+                        type: file.type,
+                        size: file.size,
+                        uploadDate: new Date().toISOString()
+                    };
+
+                    await this.saveAudioFile(audioData);
+                    await this.loadFileList();
+                    this.showStatus('파일이 성공적으로 업로드되었습니다!', 'success');
+                    
+                    // Clear the input
+                    event.target.value = '';
+                } catch (error) {
+                    console.error('Upload error:', error);
+                    this.showStatus('파일 업로드 중 오류가 발생했습니다.', 'error');
+                }
+            }
+
+            fileToArrayBuffer(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = () => reject(reader.error);
+                    reader.readAsArrayBuffer(file);
+                });
+            }
+
+            async saveAudioFile(audioData) {
+                return new Promise((resolve, reject) => {
+                    const transaction = this.db.transaction(['audioFiles'], 'readwrite');
+                    const store = transaction.objectStore('audioFiles');
+                    const request = store.add(audioData);
+                    
+                    request.onsuccess = () => resolve();
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async loadFileList() {
+                const files = await this.getAllAudioFiles();
+                this.renderFileList(files);
+            }
+
+            async getAllAudioFiles() {
+                return new Promise((resolve, reject) => {
+                    const transaction = this.db.transaction(['audioFiles'], 'readonly');
+                    const store = transaction.objectStore('audioFiles');
+                    const request = store.getAll();
+                    
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            renderFileList(files) {
+                const fileList = document.getElementById('fileList');
+                
+                if (files.length === 0) {
+                    fileList.innerHTML = `
+                        <div class="text-gray-500 text-center py-8">
+                            <i class="fas fa-folder-open text-4xl mb-2 block"></i>
+                            저장된 파일이 없습니다.
+                        </div>
+                    `;
+                    return;
+                }
+
+                fileList.innerHTML = files.map(file => `
+                    <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                        <div class="flex-1 cursor-pointer" onclick="app.playAudio('${file.id}')">
+                            <div class="flex items-center">
+                                <i class="fas fa-file-audio text-blue-500 mr-3"></i>
+                                <div>
+                                    <div class="font-medium text-gray-800">${file.name}</div>
+                                    <div class="text-sm text-gray-500">
+                                        ${this.formatFileSize(file.size)} • ${this.formatDate(file.uploadDate)}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <button onclick="app.deleteAudio('${file.id}')" 
+                                class="ml-4 px-3 py-1 text-red-600 hover:bg-red-100 rounded transition-colors">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `).join('');
+            }
+
+            async playAudio(fileId) {
+                try {
+                    const file = await this.getAudioFile(fileId);
+                    if (!file) return;
+
+                    const blob = new Blob([file.data], { type: file.type });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const audioPlayer = document.getElementById('audioPlayer');
+                    const playerSection = document.getElementById('playerSection');
+                    const currentFileName = document.getElementById('currentFileName');
+                    
+                    // Clean up previous URL
+                    if (this.currentAudio) {
+                        URL.revokeObjectURL(this.currentAudio);
+                    }
+                    
+                    this.currentAudio = url;
+                    audioPlayer.src = url;
+                    currentFileName.textContent = file.name;
+                    playerSection.classList.remove('hidden');
+                    
+                    // Scroll to player
+                    playerSection.scrollIntoView({ behavior: 'smooth' });
+                } catch (error) {
+                    console.error('Play error:', error);
+                    this.showStatus('파일 재생 중 오류가 발생했습니다.', 'error');
+                }
+            }
+
+            async getAudioFile(fileId) {
+                return new Promise((resolve, reject) => {
+                    const transaction = this.db.transaction(['audioFiles'], 'readonly');
+                    const store = transaction.objectStore('audioFiles');
+                    const request = store.get(fileId);
+                    
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async deleteAudio(fileId) {
+                if (!confirm('이 파일을 삭제하시겠습니까?')) return;
+
+                try {
+                    await this.deleteAudioFile(fileId);
+                    await this.loadFileList();
+                    this.showStatus('파일이 삭제되었습니다.', 'success');
+                    
+                    // Hide player if current file was deleted
+                    const audioPlayer = document.getElementById('audioPlayer');
+                    if (audioPlayer.src && this.currentAudio) {
+                        const playerSection = document.getElementById('playerSection');
+                        playerSection.classList.add('hidden');
+                        audioPlayer.pause();
+                        URL.revokeObjectURL(this.currentAudio);
+                        this.currentAudio = null;
+                    }
+                } catch (error) {
+                    console.error('Delete error:', error);
+                    this.showStatus('파일 삭제 중 오류가 발생했습니다.', 'error');
+                }
+            }
+
+            async deleteAudioFile(fileId) {
+                return new Promise((resolve, reject) => {
+                    const transaction = this.db.transaction(['audioFiles'], 'readwrite');
+                    const store = transaction.objectStore('audioFiles');
+                    const request = store.delete(fileId);
+                    
+                    request.onsuccess = () => resolve();
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            showStatus(message, type) {
+                const statusDiv = document.getElementById('uploadStatus');
+                const colors = {
+                    success: 'text-green-600',
+                    error: 'text-red-600',
+                    loading: 'text-blue-600'
+                };
+                
+                statusDiv.className = `mt-4 text-center ${colors[type]}`;
+                statusDiv.textContent = message;
+                statusDiv.classList.remove('hidden');
+                
+                if (type !== 'loading') {
+                    setTimeout(() => {
+                        statusDiv.classList.add('hidden');
+                    }, 3000);
+                }
+            }
+
+            formatFileSize(bytes) {
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                if (bytes === 0) return '0 Bytes';
+                const i = Math.floor(Math.log(bytes) / Math.log(1024));
+                return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+            }
+
+            formatDate(dateString) {
+                const date = new Date(dateString);
+                return date.toLocaleDateString('ko-KR', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+        }
+
+        // Initialize app when DOM is loaded
+        let app;
+        document.addEventListener('DOMContentLoaded', () => {
+            app = new SpeechPracticeApp();
+        });
+    </script>
+</body>
+</html>
+    <script id="html_badge_script1">
+        window.__genspark_remove_badge_link = "https://www.genspark.ai/api/html_badge/" +
+            "remove_badge?token=To%2FBnjzloZ3UfQdcSaYfDqaR2ZzUOOdecK2UR%2F2YqM0bb%2ByDb8ZHskdVx4SmtsAVCDaLCQgPKC4QwcisyEgruaHR53BAfaiElacUuJYv%2B3xCJaThKpN8%2BnUWN2h3Ux9q%2FSuD7N2QL1rne9osCfq8TXMHAur70JhKKfB90bU5P30itwO%2Fs6f%2Fh2H1NCmzHsb1RZwaoKa3BbLizRbq59frawDQgGwWyhb4Yhibn%2Btb%2BGEbIQnYb5VRrs0stDNQgmxmaHDQfFAOTyOF79%2BKZS1jgdm1JdbGeHk49oaZp%2BUXJKHbng1XfYqHeEceR3pENGEMlwQ0NiEunxtoP3zr%2BK38rOZkKAKGg5EgRgLzIIUWklPsMaetWvdCvFix%2BB2gJtOjj7RjMhega4xRUQ2Ia3d4M0W3PKCxm05Hlt69oKBYN1PgZ%2FRgKbUB1A5icrq05g2YVY02ky1KFHozlcA9hU9AKUcUMdv24%2FQmjLpmp%2Bzl8SVLmO5ycP2CkOY4EwT6BZZf8ydvLk8WX9K98KbltXkdxRuS21nwRPb2mn5GsnbJsh8%3D";
+        window.__genspark_locale = "ko-KR";
+        window.__genspark_token = "To/BnjzloZ3UfQdcSaYfDqaR2ZzUOOdecK2UR/2YqM0bb+yDb8ZHskdVx4SmtsAVCDaLCQgPKC4QwcisyEgruaHR53BAfaiElacUuJYv+3xCJaThKpN8+nUWN2h3Ux9q/SuD7N2QL1rne9osCfq8TXMHAur70JhKKfB90bU5P30itwO/s6f/h2H1NCmzHsb1RZwaoKa3BbLizRbq59frawDQgGwWyhb4Yhibn+tb+GEbIQnYb5VRrs0stDNQgmxmaHDQfFAOTyOF79+KZS1jgdm1JdbGeHk49oaZp+UXJKHbng1XfYqHeEceR3pENGEMlwQ0NiEunxtoP3zr+K38rOZkKAKGg5EgRgLzIIUWklPsMaetWvdCvFix+B2gJtOjj7RjMhega4xRUQ2Ia3d4M0W3PKCxm05Hlt69oKBYN1PgZ/RgKbUB1A5icrq05g2YVY02ky1KFHozlcA9hU9AKUcUMdv24/QmjLpmp+zl8SVLmO5ycP2CkOY4EwT6BZZf8ydvLk8WX9K98KbltXkdxRuS21nwRPb2mn5GsnbJsh8=";
+    </script>
+    
+    <script id="html_notice_dialog_script" src="https://www.genspark.ai/notice_dialog.js"></script>
+    

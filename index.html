@@ -45,6 +45,10 @@
                     <button id="recordBtn" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors flex items-center">
                         <i class="fas fa-microphone mr-2"></i><span id="recordBtnText">녹음 시작</span>
                     </button>
+                    <!-- 쉐도잉 녹음 버튼 추가 -->
+                    <button id="shadowingBtn" class="mt-3 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors flex items-center">
+                        <i class="fas fa-headphones-alt mr-2"></i><span id="shadowingBtnText">쉐도잉 녹음</span>
+                    </button>
                     <span id="recordStatus" class="mt-2 text-gray-600"></span>
                     <p class="text-sm text-gray-500 mt-4">마이크로 직접 녹음하여 파일로 저장할 수 있습니다</p>
                 </div>
@@ -154,6 +158,9 @@
                 this.mediaRecorder = null;
                 this.recordedChunks = [];
                 this.isRecording = false;
+                this.shadowingRecorder = null;
+                this.shadowingChunks = [];
+                this.isShadowing = false;
                 this.init();
             }
 
@@ -321,6 +328,79 @@
                         recordBtnText.textContent = '녹음 시작';
                         recordBtn.classList.remove('bg-gray-600');
                         recordBtn.classList.add('bg-red-500');
+                        recordStatus.textContent = '저장 중...';
+                    }
+                });
+
+                // 쉐도잉 녹음 버튼
+                const shadowingBtn = document.getElementById('shadowingBtn');
+                const shadowingBtnText = document.getElementById('shadowingBtnText');
+                shadowingBtn.addEventListener('click', async () => {
+                    if (!this.isShadowing) {
+                        // 쉐도잉 시작: 원어민 오디오 재생 + 내 목소리 녹음
+                        const audioPlayer = document.getElementById('audioPlayer');
+                        if (!audioPlayer.src) {
+                            recordStatus.textContent = '먼저 원어민 파일을 선택하세요.';
+                            return;
+                        }
+                        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                            recordStatus.textContent = '이 브라우저는 녹음을 지원하지 않습니다.';
+                            return;
+                        }
+                        try {
+                            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                            this.shadowingRecorder = new MediaRecorder(stream);
+                            this.shadowingChunks = [];
+                            this.shadowingRecorder.ondataavailable = (e) => {
+                                if (e.data.size > 0) this.shadowingChunks.push(e.data);
+                            };
+                            this.shadowingRecorder.onstop = async () => {
+                                const blob = new Blob(this.shadowingChunks, { type: 'audio/webm' });
+                                const now = new Date();
+                                const fileName = `쉐도잉_${now.getFullYear()}-${(now.getMonth()+1).toString().padStart(2,'0')}-${now.getDate().toString().padStart(2,'0')}_${now.getHours().toString().padStart(2,'0')}-${now.getMinutes().toString().padStart(2,'0')}-${now.getSeconds().toString().padStart(2,'0')}.webm`;
+                                const audioData = {
+                                    id: Date.now().toString(),
+                                    name: fileName,
+                                    data: await blob.arrayBuffer(),
+                                    type: 'audio/webm',
+                                    size: blob.size,
+                                    uploadDate: now.toISOString()
+                                };
+                                await this.saveAudioFile(audioData);
+                                await this.loadFileList();
+                                recordStatus.textContent = '쉐도잉 녹음이 저장되었습니다!';
+                                setTimeout(() => { recordStatus.textContent = ''; }, 2000);
+                            };
+                            this.shadowingRecorder.start();
+                            this.isShadowing = true;
+                            shadowingBtnText.textContent = '쉐도잉 정지';
+                            shadowingBtn.classList.remove('bg-blue-500');
+                            shadowingBtn.classList.add('bg-gray-600');
+                            recordStatus.textContent = '쉐도잉 녹음 중... (원어민 음성을 들으며 따라하세요)';
+                            // 원어민 오디오 처음부터 재생
+                            audioPlayer.currentTime = 0;
+                            audioPlayer.play();
+                            // 자동 정지: 오디오 끝나면 녹음도 정지
+                            audioPlayer.onended = () => {
+                                if (this.isShadowing) {
+                                    this.shadowingRecorder.stop();
+                                    this.isShadowing = false;
+                                    shadowingBtnText.textContent = '쉐도잉 녹음';
+                                    shadowingBtn.classList.remove('bg-gray-600');
+                                    shadowingBtn.classList.add('bg-blue-500');
+                                    recordStatus.textContent = '저장 중...';
+                                }
+                            };
+                        } catch (err) {
+                            recordStatus.textContent = '마이크 권한이 필요합니다.';
+                        }
+                    } else {
+                        // 쉐도잉 정지
+                        this.shadowingRecorder.stop();
+                        this.isShadowing = false;
+                        shadowingBtnText.textContent = '쉐도잉 녹음';
+                        shadowingBtn.classList.remove('bg-gray-600');
+                        shadowingBtn.classList.add('bg-blue-500');
                         recordStatus.textContent = '저장 중...';
                     }
                 });

@@ -7,132 +7,121 @@
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
 </head>
-<body class="bg-gray-50 min-h-screen">
-    <div class="container mx-auto px-4 py-8 max-w-4xl">
+<body class="bg-gradient-to-br from-blue-50 to-white min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-3xl">
         <!-- Header -->
-        <div class="text-center mb-8">
-            <h1 class="text-3xl font-bold text-gray-800 mb-2">
-                <i class="fas fa-microphone text-blue-600 mr-3"></i>
-                제이스칸 교육 말하기대회 연습앱
-            </h1>
-            <p class="text-gray-600">음성 파일을 업로드하고 반복 연습하세요</p>
+        <div class="flex flex-col items-center mb-10 md:flex-row md:items-center md:justify-center md:gap-8">
+            <img src="logo.png" alt="로고" class="h-16 w-auto mb-4 md:mb-0 md:mr-6" />
+            <div class="text-center md:text-left">
+                <div class="text-4xl font-extrabold text-blue-700 leading-tight">제이스칸 교육</div>
+                <div class="text-lg font-light text-blue-600 mt-1 tracking-wide">스피치 연습 전용앱</div>
+            </div>
         </div>
 
-        <!-- Upload Section -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <!-- 파일 업로드 박스 -->
-            <div class="bg-white rounded-lg shadow-md p-6 flex flex-col items-center">
-                <h2 class="text-xl font-semibold text-gray-800 mb-4">
-                    <i class="fas fa-upload text-green-600 mr-2"></i>
-                    파일 업로드
+        <!-- Upload & Record Section -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+            <!-- 파일 업로드 카드 -->
+            <div class="bg-white rounded-2xl shadow-lg p-6 flex flex-col items-center border border-blue-100">
+                <h2 class="text-lg font-semibold text-blue-700 mb-3 flex items-center">
+                    <i class="fas fa-upload text-green-500 mr-2"></i> 파일 업로드
                 </h2>
-                <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center w-full">
+                <div class="border-2 border-dashed border-blue-200 rounded-xl p-8 text-center w-full mb-2 bg-blue-50">
                     <input type="file" id="audioFile" accept="audio/*" class="hidden">
                     <label for="audioFile" class="cursor-pointer">
-                        <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4 block"></i>
-                        <p class="text-gray-600 mb-2">클릭하여 음성 파일을 선택하세요</p>
-                        <p class="text-sm text-gray-500">MP3, WAV, M4A 등 지원</p>
+                        <i class="fas fa-cloud-upload-alt text-4xl text-blue-300 mb-4 block"></i>
+                        <p class="text-blue-700 mb-2 font-medium">클릭하여 음성 파일을 선택하세요</p>
+                        <p class="text-xs text-blue-400">MP3, WAV, M4A 등 지원</p>
                     </label>
                 </div>
             </div>
-            <!-- 녹음 박스 -->
-            <div class="bg-white rounded-lg shadow-md p-6 flex flex-col items-center">
-                <h2 class="text-xl font-semibold text-gray-800 mb-4">
-                    <i class="fas fa-microphone text-red-500 mr-2"></i>
-                    음성 녹음
+            <!-- 녹음 카드 -->
+            <div class="bg-white rounded-2xl shadow-lg p-6 flex flex-col items-center border border-blue-100">
+                <h2 class="text-lg font-semibold text-blue-700 mb-3 flex items-center">
+                    <i class="fas fa-microphone text-red-500 mr-2"></i> 음성 녹음
                 </h2>
                 <div class="flex flex-col items-center w-full">
-                    <button id="recordBtn" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors flex items-center">
+                    <button id="recordBtn" class="px-4 py-2 bg-red-500 text-white rounded-xl shadow hover:bg-red-600 transition-colors flex items-center active:scale-95 transition-transform text-lg font-semibold">
                         <i class="fas fa-microphone mr-2"></i><span id="recordBtnText">녹음 시작</span>
                     </button>
-                    <!-- 쉐도잉 녹음 버튼 추가 -->
-                    <button id="shadowingBtn" class="mt-3 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors flex items-center">
+                    <button id="shadowingBtn" class="mt-3 px-4 py-2 bg-blue-500 text-white rounded-xl shadow hover:bg-blue-600 transition-colors flex items-center active:scale-95 transition-transform text-lg font-semibold">
                         <i class="fas fa-headphones-alt mr-2"></i><span id="shadowingBtnText">쉐도잉 녹음</span>
                     </button>
-                    <span id="recordStatus" class="mt-2 text-gray-600"></span>
-                    <p class="text-sm text-gray-500 mt-4">마이크로 직접 녹음하여 파일로 저장할 수 있습니다</p>
+                    <span id="recordStatus" class="mt-2 text-blue-600"></span>
+                    <p class="text-xs text-blue-400 mt-4">마이크로 직접 녹음하여 파일로 저장할 수 있습니다</p>
                 </div>
             </div>
         </div>
-        <div id="uploadStatus" class="mt-4 text-center hidden"></div>
+        <div id="uploadStatus" class="mb-8 text-center hidden"></div>
 
         <!-- Audio Player Section -->
-        <div id="playerSection" class="bg-white rounded-lg shadow-md p-6 mb-8 hidden">
-            <h2 class="text-xl font-semibold text-gray-800 mb-4">
-                <i class="fas fa-play-circle text-purple-600 mr-2"></i>
-                현재 재생 중
+        <div id="playerSection" class="bg-white rounded-2xl shadow-lg p-6 mb-10 border border-blue-100 hidden">
+            <h2 class="text-lg font-semibold text-purple-700 mb-4 flex items-center">
+                <i class="fas fa-play-circle text-purple-500 mr-2"></i> 현재 재생 중
             </h2>
-            <div class="bg-gray-50 rounded-lg p-4">
-                <div id="currentFileName" class="text-lg font-medium text-gray-800 mb-3"></div>
-                <audio id="audioPlayer" controls class="w-full mb-4">
+            <div class="bg-blue-50 rounded-xl p-4">
+                <div id="currentFileName" class="text-lg font-medium text-blue-800 mb-3"></div>
+                <audio id="audioPlayer" controls class="w-full mb-4 rounded-lg shadow">
                     Your browser does not support the audio element.
                 </audio>
-                <!-- 속도 조절 UI 추가 -->
-                <div class="flex items-center mb-4">
-                    <label for="playbackRate" class="mr-2 text-gray-700"><i class="fas fa-tachometer-alt mr-1"></i>재생 속도</label>
-                    <select id="playbackRate" class="border rounded px-2 py-1 text-gray-700">
-                        <option value="0.5">0.5x</option>
-                        <option value="0.75">0.75x</option>
-                        <option value="1" selected>1x (기본)</option>
-                        <option value="1.25">1.25x</option>
-                        <option value="1.5">1.5x</option>
-                        <option value="2">2x</option>
-                    </select>
-                </div>
-                <!-- AB 반복 UI 추가 -->
-                <div class="flex items-center mb-4 space-x-2">
-                    <button id="setA" class="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"><i class="fas fa-play mr-1"></i>A지점 지정</button>
-                    <button id="setB" class="px-3 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"><i class="fas fa-stop mr-1"></i>B지점 지정</button>
-                    <button id="clearAB" class="px-3 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"><i class="fas fa-times mr-1"></i>구간 반복 해제</button>
-                    <span id="abStatus" class="ml-2 text-sm text-gray-500"></span>
-                </div>
-                <!-- 북마크 저장 UI -->
-                <div class="flex items-center mb-4 space-x-2">
-                    <input id="bookmarkMemo" type="text" placeholder="메모 입력" class="border rounded px-2 py-1 text-gray-700 flex-1" />
-                    <button id="saveBookmark" class="px-3 py-1 bg-yellow-100 text-yellow-700 rounded hover:bg-yellow-200 transition-colors" disabled><i class="fas fa-bookmark mr-1"></i>북마크 저장</button>
-                </div>
-                <!-- 북마크 목록 -->
-                <div id="bookmarkList" class="mb-4"></div>
-                <div class="flex items-center justify-between">
-                    <label class="flex items-center text-gray-700">
-                        <input type="checkbox" id="repeatMode" class="mr-2">
-                        <i class="fas fa-repeat mr-1"></i>
-                        반복 재생
-                    </label>
-                    <div class="flex items-center text-sm text-gray-600">
-                        <i class="fas fa-volume-up mr-1"></i>
-                        <span>음량 조절 가능</span>
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                    <div class="flex items-center gap-4">
+                        <label class="flex items-center text-blue-700">
+                            <input type="checkbox" id="repeatMode" class="mr-2">
+                            <i class="fas fa-repeat mr-1"></i> 반복 재생
+                        </label>
+                        <div class="flex items-center text-sm text-blue-600">
+                            <i class="fas fa-volume-up mr-1"></i> 음량 조절 가능
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label for="playbackRate" class="mr-2 text-blue-700"><i class="fas fa-tachometer-alt mr-1"></i>재생 속도</label>
+                        <select id="playbackRate" class="border rounded px-2 py-1 text-blue-700 bg-white">
+                            <option value="0.5">0.5x</option>
+                            <option value="0.75">0.75x</option>
+                            <option value="1" selected>1x (기본)</option>
+                            <option value="1.25">1.25x</option>
+                            <option value="1.5">1.5x</option>
+                            <option value="2">2x</option>
+                        </select>
                     </div>
                 </div>
+                <!-- AB 반복 UI -->
+                <div class="flex flex-wrap items-center gap-2 mt-4">
+                    <button id="setA" class="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 shadow active:scale-95 transition-transform font-semibold"><i class="fas fa-play mr-1"></i>A지점 지정</button>
+                    <button id="setB" class="px-3 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 shadow active:scale-95 transition-transform font-semibold"><i class="fas fa-stop mr-1"></i>B지점 지정</button>
+                    <button id="clearAB" class="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 shadow active:scale-95 transition-transform font-semibold"><i class="fas fa-times mr-1"></i>구간 반복 해제</button>
+                    <span id="abStatus" class="ml-2 text-sm text-blue-500"></span>
+                </div>
+                <!-- 북마크 저장 UI -->
+                <div class="flex flex-wrap items-center gap-2 mt-4">
+                    <input id="bookmarkMemo" type="text" placeholder="메모 입력" class="border rounded px-2 py-1 text-blue-700 flex-1 bg-white" />
+                    <button id="saveBookmark" class="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 shadow active:scale-95 transition-transform font-semibold" disabled><i class="fas fa-bookmark mr-1"></i>북마크 저장</button>
+                </div>
+                <!-- 북마크 목록 -->
+                <div id="bookmarkList" class="mt-4"></div>
             </div>
         </div>
 
         <!-- File List Section -->
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <h2 class="text-xl font-semibold text-gray-800 mb-4">
-                <i class="fas fa-list text-orange-600 mr-2"></i>
-                저장된 파일 목록
+        <div class="bg-white rounded-2xl shadow-lg p-6 mb-10 border border-blue-100">
+            <h2 class="text-lg font-semibold text-orange-700 mb-4 flex items-center">
+                <i class="fas fa-list text-orange-500 mr-2"></i> 저장된 파일 목록
             </h2>
-            <div id="fileList" class="space-y-2">
-                <div class="text-gray-500 text-center py-8">
-                    <i class="fas fa-folder-open text-4xl mb-2 block"></i>
-                    저장된 파일이 없습니다.
-                </div>
-            </div>
+            <div id="fileList" class="space-y-2"></div>
         </div>
 
         <!-- Instructions -->
-        <div class="mt-8 bg-blue-50 border-l-4 border-blue-400 p-4 rounded">
+        <div class="mt-8 bg-blue-50 border-l-4 border-blue-400 p-4 rounded-xl shadow">
             <div class="flex">
                 <div class="flex-shrink-0">
                     <i class="fas fa-info-circle text-blue-400"></i>
                 </div>
                 <div class="ml-3">
-                    <h3 class="text-sm font-medium text-blue-800">사용 방법</h3>
+                    <h3 class="text-sm font-bold text-blue-800">사용 방법</h3>
                     <div class="mt-2 text-sm text-blue-700">
                         <ul class="list-disc list-inside space-y-1">
-                            <li>음성 파일을 업로드하면 브라우저에 자동 저장됩니다</li>
-                            <li>파일을 클릭하면 재생되며, 반복 재생으로 연습할 수 있습니다</li>
+                            <li>음성 파일을 업로드하거나 직접 녹음할 수 있습니다</li>
+                            <li>파일을 클릭하면 재생되며, 반복/구간 반복/북마크 기능을 사용할 수 있습니다</li>
                             <li>다음에 다시 방문해도 파일이 그대로 보관됩니다</li>
                             <li>불필요한 파일은 삭제 버튼으로 제거할 수 있습니다</li>
                         </ul>
@@ -511,7 +500,7 @@
                             </div>
                         </div>
                         <button onclick="app.deleteAudio('${file.id}')" 
-                                class="ml-4 px-3 py-1 text-red-600 hover:bg-red-100 rounded transition-colors">
+                                class="ml-4 px-3 py-1 text-red-600 hover:bg-red-100 rounded transition-colors active:scale-95 transition-transform">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
@@ -613,7 +602,7 @@
                     loading: 'text-blue-600'
                 };
                 
-                statusDiv.className = `mt-4 text-center ${colors[type]}`;
+                statusDiv.className = `mb-8 text-center ${colors[type]}`;
                 statusDiv.textContent = message;
                 statusDiv.classList.remove('hidden');
                 
@@ -688,7 +677,7 @@
                             <span class="font-semibold text-blue-700">[${this.formatTime(bm.a)}~${this.formatTime(bm.b)}]</span>
                             <span class="ml-2 text-gray-700">${bm.memo}</span>
                         </div>
-                        <button onclick="app.deleteBookmark(event, ${bm.id})" class="ml-2 px-2 py-0.5 text-xs text-red-600 hover:bg-red-100 rounded"><i class="fas fa-trash"></i></button>
+                        <button onclick="app.deleteBookmark(event, ${bm.id})" class="ml-2 px-2 py-0.5 text-xs text-red-600 hover:bg-red-100 rounded active:scale-95 transition-transform"><i class="fas fa-trash"></i></button>
                     </div>
                 `).join('');
             }
